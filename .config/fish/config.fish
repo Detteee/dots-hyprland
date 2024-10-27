@@ -18,8 +18,13 @@ if test -f ~/.cache/ags/user/generated/terminal/sequences.txt
 end
 
 alias pamcan=pacman
+alias :q=exit
+alias cd..='cd ..'
+alias g=lazygit
 
 # function fish_prompt
 #   set_color cyan; echo (pwd)
 #   set_color green; echo '> '
 # end
+
+zoxide init fish | source
