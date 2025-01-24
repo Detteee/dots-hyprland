@@ -30,13 +30,33 @@ prepare() {
   cd $srcdir/$_pkgname
 }
 
+# ... existing header and metadata ...
+
 build() {
   cd $srcdir/$_pkgname
   npm install
-  arch-meson build --libdir "lib/$_pkgname" -Dbuild_types=true
+  meson setup --reconfigure build \
+    --prefix /usr \
+    --libexecdir lib \
+    --sbindir bin \
+    --buildtype plain \
+    --auto-features enabled \
+    --wrap-mode nodownload \
+    -D b_pie=true \
+    -D python.bytecompile=1 \
+    --libdir "lib/$_pkgname" \
+    -Dbuild_types=true
   meson compile -C build
 }
 
+# ... remaining package function and other sections ...
+# build() {
+#   cd $srcdir/$_pkgname
+#   npm install
+#   arch-meson build --libdir "lib/$_pkgname" -Dbuild_types=true
+#   meson compile -C build
+# }
+#
 package() {
   cd $srcdir/$_pkgname
   meson install -C build --destdir "$pkgdir"

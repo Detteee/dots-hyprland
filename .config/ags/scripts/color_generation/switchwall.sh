@@ -53,8 +53,9 @@ EOF
 }
 
 switch() {
-	imgpath=$1
-	read scale screenx screeny screensizey < <(hyprctl monitors -j | jq '.[] | select(.focused) | .scale, .x, .y, .height' | xargs)
+	local monitor=$1
+	local imgpath=$2
+	read scale screenx screeny screensizey < <(hyprctl monitors -j | jq --arg mon "$monitor" '.[] | select(.name==$mon) | .scale, .x, .y, .height' | xargs)
 	cursorposx=$(hyprctl cursorpos -j | jq '.x' 2>/dev/null) || cursorposx=960
 	cursorposx=$(bc <<< "scale=0; ($cursorposx - $screenx) * $scale / 1")
 	cursorposy=$(hyprctl cursorpos -j | jq '.y' 2>/dev/null) || cursorposy=540
@@ -62,77 +63,40 @@ switch() {
 	cursorposy_inverted=$((screensizey - cursorposy))
 
 	if [ "$imgpath" == '' ]; then
-		echo 'Aborted'
-		exit 0
+		echo "Aborted for monitor $monitor"
+		return 1
 	fi
 
-	kill_existing_mpvpaper
-
-	if is_video "$imgpath"; then
-		missing_deps=()
-		if ! command -v mpvpaper &> /dev/null; then
-			missing_deps+=("mpvpaper")
-		fi
-
-		if ! command -v ffmpeg &> /dev/null; then
-			missing_deps+=("ffmpeg")
-		fi
-
-		if [ ${#missing_deps[@]} -gt 0 ]; then
-			echo "Missing deps: ${missing_deps[*]}"
-			echo "Arch: "
-			echo "	yay -S ${missing_deps[*]}"
-			exit 0
-		fi
-
-		local video_path=$1
-		
-		monitors=$(hyprctl monitors -j | jq -r '.[] | .name')
-
-		for monitor in $monitors; do
-			mpvpaper -o "$VIDEO_OPTS" "$monitor" "$video_path" &
-			sleep 0.1
-		done
-
-		# We take the first frame of video to colorgen and swww
-		thumbnail="$CACHE_DIR"/user/generated/mpvpaper_thumbnail.jpg
-		ffmpeg -y -i "$imgpath" -vframes 1 "$thumbnail" 2>/dev/null
-
-		if [ -f "$thumbnail" ]; then
-			# Apply swww wallpaper using the thumbnail
-			swww img "$thumbnail" --transition-step 100 --transition-fps 120 \
-				--transition-type grow --transition-angle 30 --transition-duration 1 \
-				--transition-pos "$cursorposx, $cursorposy_inverted"
-			"$CONFIG_DIR"/scripts/color_generation/colorgen.sh "$thumbnail" --apply --smart
-
-			create_restore_script "$video_path" 
-		else
-			echo "Cannot create image to colorgen"
-		fi
-	else
-		# agsv1 run-js "wallpaper.set('')"
-		# sleep 0.1 && agsv1 run-js "wallpaper.set('${imgpath}')" &
-		swww img "$imgpath" --transition-step 100 --transition-fps 120 \
-			--transition-type grow --transition-angle 30 --transition-duration 1 \
-			--transition-pos "$cursorposx, $cursorposy_inverted"
-
-		"$CONFIG_DIR"/scripts/color_generation/colorgen.sh "$imgpath" --apply --smart
-		remove_restore
-	fi
+	swww img "$imgpath" --outputs "$monitor" \
+		--transition-step 100 --transition-fps 120 \
+		--transition-type grow --transition-angle 30 --transition-duration 1 \
+		--transition-pos "$cursorposx, $cursorposy_inverted"
 }
 
-if [ "$1" == "--noswitch" ]; then
-	if pgrep -f mpvpaper > /dev/null; then
-		imgpath=$(ps -eo cmd | grep mpvpaper | grep -v grep | awk '{for(i=NF;i>0;i--) if($i!~/^-/) {print $i; break}}')
-	else
-		imgpath=$(swww query | awk -F 'image: ' '{print $2}')
-		# imgpath=$(agsv1 run-js 'wallpaper.get(0)')
-	fi
-elif [[ "$1" ]]; then
-	switch "$1"
-else
-	# Select and set image (hyprland)
+# Get list of monitors
+readarray -t monitors < <(hyprctl monitors -j | jq -r '.[].name')
+first_monitor_wallpaper=""
 
-	cd "$(xdg-user-dir PICTURES)/Wallpapers" || cd "$(xdg-user-dir PICTURES)" || return 1
-	switch "$(yad --width 1200 --height 800 --file --add-preview --large-preview --title='Choose wallpaper')"
-fi
+cd "$(xdg-user-dir PICTURES)" || exit 1
+
+# Add floating rule for yad dialog
+hyprctl keyword windowrule "float,^(yad)$" >/dev/null
+
+# Handle each monitor
+for monitor in "${monitors[@]}"; do
+	echo "Select wallpaper for monitor: $monitor"
+	imgpath=$(yad --width 1200 --height 800 --file --add-preview --large-preview --title="Choose wallpaper for $monitor")
+	
+	# Store first monitor's wallpaper for color generation
+	if [ "$monitor" = "${monitors[0]}" ]; then
+		first_monitor_wallpaper="$imgpath"
+	fi
+	
+	switch "$monitor" "$imgpath"
+done
+
+# Remove the floating rule after we're done
+hyprctl keyword windowrule "unset,^(yad)$" >/dev/null
+
+# Generate colors for ags using the first monitor's wallpaper
+"$CONFIG_DIR"/scripts/color_generation/colorgen.sh "${first_monitor_wallpaper}" --apply --smart
