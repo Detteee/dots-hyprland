@@ -145,12 +145,22 @@ $bar_ws_width_focus_active: 2.045rem;
 
 .bar-time {
     @include titlefont;
-    font-size: 1.2727rem;
+    // font-size: 1.2727rem;
+    margin-top: 0.2rem;
+    font-size: 1.5rem;
     color: $timeOnLayer1;
+    // font-family: "Hug Me Tight"
+    font-family: "Fafo Sans"
 }
 
 .bar-date {
+    margin-top: 0.2rem;
+    // font-size: 1.1rem;
+    font-size: 1.4rem;
     color: $dateOnLayer1;
+    // font-family: "Xiaolai SC";
+    // font-family: "Hug Me Tight"
+    font-family: "Fafo Sans"
 }
 
 .bar-batt {
@@ -214,6 +224,9 @@ $bar_ws_width_focus_active: 2.045rem;
 
 .bar-ram-txt {
     color: $ramOnLayer1;
+    // font-family: "Xiaolai SC";
+    font-size: 1.35rem;
+    font-family: "Fafo Sans"
 }
 
 .bar-swap-icon {
@@ -303,7 +316,9 @@ $bar_ws_width_focus_active: 2.045rem;
 
 .bar-music-txt {
     color: $musicOnLayer1;
-    font-family: "975Maru SC";
+    // font-family: "Xiaolai SC";
+    font-family: "LXGW Marker Gothic"
+    // font-family: "Yozai"
 }
 
 .bar-music-cover {
@@ -348,11 +363,18 @@ $bar_ws_width_focus_active: 2.045rem;
 .bar-wintitle-topdesc {
     margin-top: -0.136rem;
     margin-bottom: -0.341rem;
+    font-family: "Yozai";
     color: $windowtitleOnLayer0Inactive;
 }
 
 .bar-wintitle-txt {
     color: $windowtitleOnLayer0;
+    margin-left: 0.6rem;
+    margin-top: 0.4rem;
+    // font-family: "975Maru SC";
+    font-family: "LXGW Marker Gothic"
+    // font-family: "K Gothic"
+    // font-family: "Yozai"
 }
 
 .bar-space-button {
