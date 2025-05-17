@@ -20,7 +20,7 @@ colorlist=()
 colorvalues=()
 
 # wallpath=$(swww query | head -1 | awk -F 'image: ' '{print $2}')
-# wallpath_png="$CACHE_DIR/user/generated/hypr/lockscreen.png"
+# wallpath_png="$CACHE_DIR"/user/generated/hypr/lockscreen.png"
 # convert "$wallpath" "$wallpath_png"
 # wallpath_png=$(echo "$wallpath_png" | sed 's/\//\\\//g')
 # wallpath_png=$(sed 's/\//\\\\\//g' <<< "$wallpath_png")
@@ -188,6 +188,66 @@ apply_qt() {
   python "$CONFIG_DIR/scripts/kvantum/changeAdwColors.py" # apply config colors
 }
 
+apply_textfox_css() {
+  echo "Attempting to update Firefox defaults.css" # More accurate message
+
+  local firefox_profile_dir
+  # Find the Firefox profile directory ending in .default-release
+  firefox_profile_dir=$(find "$HOME/.mozilla/firefox/" -maxdepth 1 -type d -name "*.default-release" -print -quit)
+
+  # Check if a profile directory was found
+  if [ -z "$firefox_profile_dir" ]; then
+    echo "Error: Could not find a Firefox profile directory ending in '.default-release'."
+    echo "Please ensure Firefox has been run at least once and a profile exists."
+    return
+  fi
+
+  local defaults_css_path="$firefox_profile_dir/chrome/defaults.css"
+  echo "Targeting Firefox defaults.css at: $defaults_css_path" # Debug print
+
+  # Extract the primary color from the SCSS file
+  local primary_color=$(grep '$primary:' "$STATE_DIR/scss/_material.scss" | awk '{print $2}' | sed 's/;//')
+
+  # Check if primary_color was found
+  if [ -z "$primary_color" ]; then
+    echo "Could not find \$primary color in $STATE_DIR/scss/_material.scss. Skipping textfox css update."
+    return
+  fi
+  echo "Extracted primary color: $primary_color" # Debug print
+
+  # Check if the defaults.css file exists. If not, create the directory and an empty file.
+  if [ ! -f "$defaults_css_path" ]; then
+    echo "Warning: defaults.css not found at $defaults_css_path."
+    echo "Attempting to create the directory and file."
+    mkdir -p "$(dirname "$defaults_css_path")"
+    touch "$defaults_css_path"
+    echo "Created directory and empty defaults.css file."
+  fi
+   echo "Found or created defaults.css file." # Debug print
+
+
+  # Check which lines match the pattern before sed (for debugging)
+  echo "Lines matching pattern '^\s*--tf-accent:.*' in $defaults_css_path:" # Debug print
+  local matched_lines=$(grep -n "^\s*--tf-accent:.*" "$defaults_css_path")
+  if [ -z "$matched_lines" ]; then
+      echo "Pattern not found in $defaults_css_path."
+      # If the pattern is not found, add the line.
+      echo "Adding --tf-accent line to $defaults_css_path."
+      echo "  --tf-accent: ${primary_color}; /* Accent color used, eg: color when hovering a container */" >> "$defaults_css_path"
+      echo "Successfully added --tf-accent line."
+  else
+      echo "$matched_lines" # Print matched lines if found
+      # If the pattern is found, update the line using sed.
+      echo "Pattern found. Attempting to update the line."
+      if sed -i "s|^\s*--tf-accent:.*|  --tf-accent: ${primary_color}; /* Accent color used, eg: color when hovering a container */|" "$defaults_css_path"; then
+          echo "Successfully updated --tf-accent in $defaults_css_path to ${primary_color}"
+      else
+          echo "Error: sed command failed to update $defaults_css_path. Check permissions and file content."
+      fi
+  fi
+}
+
+
 colornames=$(cat $STATE_DIR/scss/_material.scss | cut -d: -f1)
 colorstrings=$(cat $STATE_DIR/scss/_material.scss | cut -d: -f2 | cut -d ' ' -f2 | cut -d ";" -f1)
 IFS=$'\n'
@@ -203,3 +263,4 @@ apply_gtk &
 apply_qt &
 apply_fuzzel &
 apply_term &
+apply_textfox_css &
